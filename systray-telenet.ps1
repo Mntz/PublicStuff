@@ -22,8 +22,8 @@ Function get-telenetStats
     $response = Invoke-WebRequest -Uri $url -SessionVariable s -TimeoutSec 10
     $url = "https://login.prd.telenet.be/openid/login.do"
     $data = @{
-        "j_username" = ""
-        "j_password" = ""
+        "j_username" = "bramvdp@gmail.com"
+        "j_password" = "ND5UCrZta92jSn"
         "rememberme" = $true
     }
     $response = Invoke-WebRequest -Uri $url -Method POST -Body $data -WebSession $s -TimeoutSec 10
@@ -53,8 +53,6 @@ Function get-telenetStats
 #
 
 $telenetStats = get-telenetStats
-
-$Current_Folder = split-path $MyInvocation.MyCommand.Path
  
 # Add assemblies
 [System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | out-null
@@ -74,42 +72,42 @@ $image = [System.Drawing.Bitmap][System.Drawing.Image]::FromStream($bitmap.Strea
 $icon = [System.Drawing.Icon]::FromHandle($image.GetHicon())
 
 # Add the systray icon
-$Main_Tool_Icon = New-Object System.Windows.Forms.NotifyIcon
-$Main_Tool_Icon.Text = "Piekuren: $($telenetStats.Split(";")[0])GB  Daluren: $($telenetStats.Split(";")[1])GB  Reset op: $($telenetStats.Split(";")[3])"
-$Main_Tool_Icon.Icon = $icon
-$Main_Tool_Icon.Visible = $true
+$sysIcon = New-Object System.Windows.Forms.NotifyIcon
+$sysIcon.Text = "Piekuren: $($telenetStats.Split(";")[0])GB  Daluren: $($telenetStats.Split(";")[1])GB  Reset op: $($telenetStats.Split(";")[3])"
+$sysIcon.Icon = $icon
+$sysIcon.Visible = $true
  
-# Make PowerShell Disappear
+# Make PowerShell window disappear
 $windowcode = '[DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);'
 $asyncwindow = Add-Type -MemberDefinition $windowcode -name Win32ShowWindowAsync -namespace Win32Functions -PassThru
 $null = $asyncwindow::ShowWindowAsync((Get-Process -PID $pid).MainWindowHandle, 0)
  
-# Use a Garbage colection to reduce Memory RAM
+# Garbage colection to reduce memory RAM
 [System.GC]::Collect()
 
-# Add all menus as context menus
-$contextmenu = New-Object System.Windows.Forms.ContextMenuStrip
+# Context menus
+$contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
 
-$Menu_Refresh = New-Object System.Windows.Forms.ToolStripMenuItem
-$Menu_Refresh.Text = "Last Refresh: $((Get-Date).ToShortTimeString())"
-$contextmenu.Items.Add($Menu_Refresh)
+$menuRefresh = New-Object System.Windows.Forms.ToolStripMenuItem
+$menuRefresh.Text = "Last Refresh: $((Get-Date).ToShortTimeString())"
+$contextMenu.Items.Add($menuRefresh)
  
-$Menu_Exit = New-Object System.Windows.Forms.ToolStripMenuItem
-$Menu_Exit.Text = "Exit"
-$contextmenu.Items.Add($Menu_Exit)
+$menuExit = New-Object System.Windows.Forms.ToolStripMenuItem
+$menuExit.Text = "Exit"
+$contextMenu.Items.Add($menuExit)
 
-$Main_Tool_Icon.ContextMenuStrip = $contextmenu
+$sysIcon.ContextMenuStrip = $contextMenu
 
-# Refresh data
-$Menu_Refresh.add_Click({
-    $Menu_Refresh.Text = "Last Refresh: $((Get-Date).ToShortTimeString())"
+# Refresh option
+$menuRefresh.add_Click({
+    $menuRefresh.Text = "Last Refresh: $((Get-Date).ToShortTimeString())"
     $telenetStats = get-telenetStats
-    $Main_Tool_Icon.Text = "Piekuren: $($telenetStats.Split(";")[0])GB  Daluren: $($telenetStats.Split(";")[1])GB  Reset op: $($telenetStats.Split(";")[3])"
+    $sysIcon.Text = "Piekuren: $($telenetStats.Split(";")[0])GB  Daluren: $($telenetStats.Split(";")[1])GB  Reset op: $($telenetStats.Split(";")[3])"
 })
 
-# Action after clicking on the Exit context menu
-$Menu_Exit.add_Click({
-    $Main_Tool_Icon.Visible = $false
+# Exit option
+$menuExit.add_Click({
+    $sysIcon.Visible = $false
     $window.Close()
     Stop-Process $pid
 })
