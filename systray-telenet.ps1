@@ -52,7 +52,7 @@ Function get-telenetStats
 # LETS GO
 #
 
-#$telenetStats = get-telenetStats
+$telenetStats = get-telenetStats
 
 $Current_Folder = split-path $MyInvocation.MyCommand.Path
  
