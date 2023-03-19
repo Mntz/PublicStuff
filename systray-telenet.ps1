@@ -22,8 +22,8 @@ Function get-telenetStats
     $response = Invoke-WebRequest -Uri $url -SessionVariable s -TimeoutSec 10
     $url = "https://login.prd.telenet.be/openid/login.do"
     $data = @{
-        "j_username" = "bramvdp@gmail.com"
-        "j_password" = "ND5UCrZta92jSn"
+        "j_username" = ""
+        "j_password" = ""
         "rememberme" = $true
     }
     $response = Invoke-WebRequest -Uri $url -Method POST -Body $data -WebSession $s -TimeoutSec 10
