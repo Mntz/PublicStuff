@@ -35,17 +35,36 @@ Function get-telenetStats
         }
     }
 
-    $url = "https://api.prd.telenet.be/ocapi/public/?p=internetusage,internetusagereminder"
-    $response = Invoke-WebRequest -Uri $url -Method Get -Headers $headers -WebSession $s -TimeoutSec 10
+    #Getting internet user id
+    $productsUrl = "https://api.prd.telenet.be/ocapi/public/api/product-service/v1/products?status=ACTIVE"
+    $response = Invoke-WebRequest -Uri $productsUrl -Method Get -Headers $headers -WebSession $s -TimeoutSec 10
+    $telenetValues = $response.Content | ConvertFrom-Json
+    $telenetInternetIdentifier = ""
 
+    foreach ($product in $telenetValues.children) {
+        if ($product.productType -like "internet") {
+            $telenetInternetIdentifier = $product.identifier
+        }
+    }
+
+    #Getting bill cycle dates using id
+    $productsUrl = "https://api.prd.telenet.be/ocapi/public/api/billing-service/v1/account/products/$telenetInternetIdentifier/billcycle-details?producttype=internet&count=1"
+    $response = Invoke-WebRequest -Uri $productsUrl -Method Get -Headers $headers -WebSession $s -TimeoutSec 10
+    $telenetValues = $response.Content | ConvertFrom-Json
+    $telenetStartDate = $telenetValues.billCycles[0].startDate
+    $telenetEndDate = $telenetValues.billCycles[0].endDate
+
+    #Getting usage with id and dates
+    $productsUrl = "https://api.prd.telenet.be/ocapi/public/api/product-service/v1/products/internet/$telenetInternetIdentifier/usage?fromDate=$telenetStartDate&toDate=$telenetEndDate"
+    $response = Invoke-WebRequest -Uri $productsUrl -Method Get -Headers $headers -WebSession $s -TimeoutSec 10
     $telenetValues = $response.Content | ConvertFrom-Json
 
-    $currentPeak = [math]::Round(($telenetValues.internetusage[0].availableperiods[0].usages[0].totalusage.peak / 1024 / 1024))
-    $currentoffPeak = [math]::Round(($telenetValues.internetusage[0].availableperiods[0].usages[0].totalusage.offpeak / 1024 / 1024))
-    $currentStart = ($telenetValues.internetusage[0].availableperiods[0].usages[0].periodstart).ToString("dd/MM")
-    $currentEnd = ($telenetValues.internetusage[0].availableperiods[0].usages[0].periodend).ToString("dd/MM")
+    $currentUsage = $telenetValues.internet.totalUsage.units
+    $currentLimit = $telenetValues.internet.allocatedUsage.units
+    $resetDate = $([DateTime]::ParseExact($telenetEndDate, "yyyy-MM-dd", $null)).ToString("MM/dd/yyyy")
+    $daysLeft = $telenetValues.internet.daysUntil
 
-    Return "$currentPeak;$currentoffPeak;$currentStart;$currentEnd"
+    Return "$currentUsage;$currentLimit;$resetDate;$daysLeft"
 }   
 
 #
@@ -73,7 +92,7 @@ $icon = [System.Drawing.Icon]::FromHandle($image.GetHicon())
 
 # Add the systray icon
 $sysIcon = New-Object System.Windows.Forms.NotifyIcon
-$sysIcon.Text = "Piekuren: $($telenetStats.Split(";")[0])GB  Daluren: $($telenetStats.Split(";")[1])GB  Reset op: $($telenetStats.Split(";")[3])"
+$sysIcon.Text = "Usage: $($telenetStats.Split(";")[0])/$($telenetStats.Split(";")[1])GB | Reset: $($telenetStats.Split(";")[2]) ($($telenetStats.Split(";")[3]) days)"
 $sysIcon.Icon = $icon
 $sysIcon.Visible = $true
  
