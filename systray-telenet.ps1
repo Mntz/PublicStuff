@@ -1,7 +1,29 @@
+#Requires -Version 7.0
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::TLS12
 
-Function get-telenetStats
-    {
+Function get-UsernamePassword {
+    if (Test-Path -Path "HKCU:\Software\SystrayTelenet") {
+        $regCredentials = Get-ItemProperty -Path "HKCU:\Software\SystrayTelenet"
+        $securePassword = ConvertTo-SecureString -String $regCredentials.Password
+        $securePassword = ConvertFrom-SecureString -SecureString $securePassword -AsPlainText
+        $regCredentials.Password = $securePassword
+        Return $regCredentials
+    } else {
+        New-Item -Path "HKCU:\Software\SystrayTelenet"
+        $username = Read-Host "Enter your Telenet username"
+        $password = Read-Host "Enter password for $username" -AsSecureString
+        New-ItemProperty -Path "HKCU:\Software\SystrayTelenet\" -Name 'Username' -Value $username -PropertyType String
+        New-ItemProperty -Path "HKCU:\Software\SystrayTelenet\" -Name 'Password' -Value (ConvertFrom-SecureString -SecureString $password) -PropertyType String
+
+        $regCredentials = Get-ItemProperty -Path "HKCU:\Software\SystrayTelenet"
+        $securePassword = ConvertTo-SecureString -String $regCredentials.Password
+        $securePassword = ConvertFrom-SecureString -SecureString $securePassword -AsPlainText
+        $regCredentials.Password = $securePassword
+        Return $regCredentials
+    }
+}
+
+Function get-telenetStats {
 
     $headers = @{
         "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
@@ -21,9 +43,10 @@ Function get-telenetStats
     $url = "https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={""id_token"":{""http://telenet.be/claims/roles"":null,""http://telenet.be/claims/licenses"":null}}&lang=nl&state=$state&nonce=$nonce&prompt=login"
     $response = Invoke-WebRequest -Uri $url -SessionVariable s -TimeoutSec 10
     $url = "https://login.prd.telenet.be/openid/login.do"
+    $creds = get-UsernamePassword
     $data = @{
-        "j_username" = ""
-        "j_password" = ""
+        "j_username" = "$($creds.username)"
+        "j_password" = "$($creds.password)"
         "rememberme" = $true
     }
     $response = Invoke-WebRequest -Uri $url -Method POST -Body $data -WebSession $s -TimeoutSec 10
@@ -92,7 +115,7 @@ $icon = [System.Drawing.Icon]::FromHandle($image.GetHicon())
 
 # Add the systray icon
 $sysIcon = New-Object System.Windows.Forms.NotifyIcon
-$sysIcon.Text = "Usage: $($telenetStats.Split(";")[0])/$($telenetStats.Split(";")[1])GB | Reset: $($telenetStats.Split(";")[2]) ($($telenetStats.Split(";")[3]) days)"
+$sysIcon.Text = "Usage: $($telenetStats.Split(";")[0])/$($telenetStats.Split(";")[1])GB • Reset: $($telenetStats.Split(";")[2]) ($($telenetStats.Split(";")[3]) days)"
 $sysIcon.Icon = $icon
 $sysIcon.Visible = $true
  
@@ -101,14 +124,14 @@ $windowcode = '[DllImport("user32.dll")] public static extern bool ShowWindowAsy
 $asyncwindow = Add-Type -MemberDefinition $windowcode -name Win32ShowWindowAsync -namespace Win32Functions -PassThru
 $null = $asyncwindow::ShowWindowAsync((Get-Process -PID $pid).MainWindowHandle, 0)
  
-# Garbage colection to reduce memory RAM
+# Garbage colection to reduce RAM memory
 [System.GC]::Collect()
 
 # Context menus
 $contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
 
 $menuRefresh = New-Object System.Windows.Forms.ToolStripMenuItem
-$menuRefresh.Text = "Last Refresh: $((Get-Date).ToShortTimeString())"
+$menuRefresh.Text = "Last Refresh: $((Get-Date).ToString())"
 $contextMenu.Items.Add($menuRefresh)
  
 $menuExit = New-Object System.Windows.Forms.ToolStripMenuItem
@@ -119,9 +142,9 @@ $sysIcon.ContextMenuStrip = $contextMenu
 
 # Refresh option
 $menuRefresh.add_Click({
-    $menuRefresh.Text = "Last Refresh: $((Get-Date).ToShortTimeString())"
+    $menuRefresh.Text = "Last Refresh: $((Get-Date).ToString())"
     $telenetStats = get-telenetStats
-    $sysIcon.Text = "Piekuren: $($telenetStats.Split(";")[0])GB  Daluren: $($telenetStats.Split(";")[1])GB  Reset op: $($telenetStats.Split(";")[3])"
+    $sysIcon.Text = "Usage: $($telenetStats.Split(";")[0])/$($telenetStats.Split(";")[1])GB • Reset: $($telenetStats.Split(";")[2]) ($($telenetStats.Split(";")[3]) days)"
 })
 
 # Exit option
