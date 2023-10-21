@@ -85,7 +85,7 @@ Function get-telenetStats {
     $currentUsage = $telenetValues.internet.totalUsage.units
     $currentLimit = $telenetValues.internet.allocatedUsage.units
     $resetDate = $([DateTime]::ParseExact($telenetEndDate, "yyyy-MM-dd", $null)).ToString("MM/dd/yyyy")
-    $daysLeft = $telenetValues.internet.daysUntil
+    $daysLeft = [math]::Ceiling((([DateTime]$telenetEndDate)-(Get-Date)).TotalDays)
 
     Return "$currentUsage;$currentLimit;$resetDate;$daysLeft"
 }   
